@@ -1003,48 +1003,6 @@
     }
 
   
-
-    /* ---------- Injury Analytics ---------- */
-    .grid-4{
-      display:grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 16px;
-    }
-    @media (max-width: 1100px){
-      .grid-4{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 700px){
-      .grid-4{ grid-template-columns: 1fr; }
-    }
-    .dim-card{
-      background:#f5f3f0;
-      border-radius: var(--radius-md);
-      padding: 18px;
-      box-shadow: var(--soft-shadow);
-      border: 1px solid rgba(0,0,0,.05);
-      min-height: 280px;
-      display:flex;
-      flex-direction:column;
-    }
-    .dim-card h3{
-      margin:0 0 4px;
-      font-size:16px;
-      color: var(--onyx);
-    }
-    .dim-card .meta{
-      margin-bottom: 12px;
-    }
-    .dim-empty{
-      color:#666;
-      font-size:12px;
-      padding-top: 8px;
-    }
-    .panel-footnote{
-      margin-top: 12px;
-      font-size: 12px;
-      color:#666;
-    }
-
     /* ==============================
        SIMPLE LOGIN GATE (CLIENT-SIDE)
        NOTE: This is NOT real security.
@@ -1153,7 +1111,22 @@
     }
     .logout-btn:hover{ background: rgba(255,255,255,.10); }
 
-  </style>
+  
+/* ==== Injury Analytics Dark Theme Override ==== */
+#injury-analytics, .injury-analytics{
+  background: transparent !important;
+}
+.injury-card{
+  background: linear-gradient(180deg,#1a1a1b 0%, #111112 100%) !important;
+  border-radius: 16px;
+  padding:18px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.45);
+  color:#F2EFEB;
+}
+.injury-card h3{color:#F2EFEB;}
+.injury-card span{color:#CFCDCA;}
+
+</style>
 </head>
 
 <body>
@@ -1274,40 +1247,6 @@
 
         </div>
       </div>
-
-      <div class="section">
-        <h2>Injury Signature Analytics</h2>
-        <p>Executive rollups showing what is getting hurt, how it is getting hurt, and when incidents are occurring.</p>
-
-        <div class="grid-4">
-          <div class="dim-card">
-            <h3>Body Part Distribution</h3>
-            <div class="meta">Most frequently affected body areas</div>
-            <div class="mini-table" id="bodyPartTable">—</div>
-          </div>
-
-          <div class="dim-card">
-            <h3>Nature of Injury</h3>
-            <div class="meta">Top injury outcomes across the current canon</div>
-            <div class="mini-table" id="natureTable">—</div>
-          </div>
-
-          <div class="dim-card">
-            <h3>Mechanism</h3>
-            <div class="meta">How incidents are occurring operationally</div>
-            <div class="mini-table" id="mechanismTable">—</div>
-          </div>
-
-          <div class="dim-card">
-            <h3>Day of Week</h3>
-            <div class="meta">Incident distribution by weekday</div>
-            <div class="mini-table" id="dayTable">—</div>
-          </div>
-        </div>
-
-        <div class="panel-footnote">These cards pull from published rollup tabs so you can expand the canon without breaking the current executive dashboard.</div>
-      </div>
-
 <div class="section">
         <h2>Subcontractor Performance</h2>
         <p>Top subcontractors by hours are shown below. Use the lookup to view any subcontractor.</p>
@@ -1482,12 +1421,6 @@
 
     /* ✅ PASTE YOUR PUB_IOI PUBLISHED CSV LINK HERE */
     const IOI_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=303885721&single=true&output=csv";
-
-    const NATURE_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=1755388549&single=true&output=csv";
-    const BODY_PART_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=1787496507&single=true&output=csv";
-    const MECHANISM_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=4709382&single=true&output=csv";
-    const DAYOFWEEK_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=1983006757&single=true&output=csv";
-
 
     /*** helpers ***/
     const bust = (url) => url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
@@ -2215,87 +2148,15 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       `).join("");
     }
 
-
-    /*** DIMENSION ANALYTICS ***/
-    function normalizeDimensionRows(rows, primaryKeys){
-      return (rows || []).map(r => {
-        const label = primaryKeys.map(k => r[k]).find(v => String(v || "").trim() !== "")
-          || r.Label || r.Name || r.Category || "";
-        const count = toNumber(r.Count ?? r.Total ?? r.Incidents ?? r.Value ?? 0);
-        return {
-          label: String(label || "").trim(),
-          count
-        };
-      }).filter(x => x.label && x.label.toLowerCase() !== "total" && x.label.toLowerCase() !== "grand total");
-    }
-
-    function buildDimensionTable(rows, opts={}){
-      const topN = opts.topN || 7;
-      const ordered = (rows || []).slice(0, topN);
-      const total = ordered.reduce((a,b)=> a + (Number(b.count)||0), 0);
-
-      if (!ordered.length){
-        return `<div class="dim-empty">No data available.</div>`;
-      }
-
-      return `
-        <table class="mini">
-          <thead><tr><th>Rank</th><th>Name</th><th>Count</th><th>Share</th></tr></thead>
-          <tbody>
-            ${ordered.map((r,i)=>`
-              <tr>
-                <td class="mono">${i+1}</td>
-                <td>${safeText(r.label)}</td>
-                <td class="mono">${r.count}</td>
-                <td class="mono">${total ? fmtPct(r.count / total) : "—"}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      `;
-    }
-
-    function renderDimensionAnalytics(bodyRows, natureRows, mechanismRows, dayRows){
-      const bodyEl = document.getElementById("bodyPartTable");
-      const natureEl = document.getElementById("natureTable");
-      const mechEl = document.getElementById("mechanismTable");
-      const dayEl = document.getElementById("dayTable");
-
-      const body = normalizeDimensionRows(bodyRows, ["BodyPart"]);
-      const nature = normalizeDimensionRows(natureRows, ["NatureOfInjury"]);
-      const mech = normalizeDimensionRows(mechanismRows, ["Mechanism"]);
-      let day = normalizeDimensionRows(dayRows, ["DayOfWeek"]);
-
-      const dayOrder = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-      day.sort((a,b)=>{
-        const ai = dayOrder.indexOf(a.label);
-        const bi = dayOrder.indexOf(b.label);
-        if (ai !== -1 && bi !== -1) return ai - bi;
-        if (ai !== -1) return -1;
-        if (bi !== -1) return 1;
-        return b.count - a.count;
-      });
-
-      if (bodyEl) bodyEl.innerHTML = buildDimensionTable(body, { topN: 7 });
-      if (natureEl) natureEl.innerHTML = buildDimensionTable(nature, { topN: 7 });
-      if (mechEl) mechEl.innerHTML = buildDimensionTable(mech, { topN: 7 });
-      if (dayEl) dayEl.innerHTML = buildDimensionTable(day, { topN: 7 });
-    }
-
-
     /*** init ***/
     (async function init(){
       try {
         setStatus("Loading data…");
 
-        const [kpis, subs, inc, bodyParts, natures, mechanisms, days] = await Promise.all([
+        const [kpis, subs, inc] = await Promise.all([
           fetchTable(KPI_CSV),
           fetchTable(SUBS_CSV),
-          fetchTable(INCIDENTS_CSV),
-          fetchTable(BODY_PART_CSV),
-          fetchTable(NATURE_CSV),
-          fetchTable(MECHANISM_CSV),
-          fetchTable(DAYOFWEEK_CSV)
+          fetchTable(INCIDENTS_CSV)
         ]);
 
         // Normalize incidents once for IOI drivers (neutral rollup)
@@ -2303,7 +2164,6 @@ function computeTelemetryWindow(incNorm, subsAll, window){
 
         renderKPIs(kpis);
         renderSubs(subs);
-        renderDimensionAnalytics(bodyParts, natures, mechanisms, days);
 
         // Incidents
         renderIncidentsTable(inc);
