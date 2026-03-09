@@ -1267,8 +1267,7 @@
           <div class="ioi-card" id="ioiCard10k">
             <div class="ioi-card-h">
               <div class="k">≥10,000 Hours Filter</div>
-              <div class="meta">Subs w/ meaningful exposure</div>
-            </div>
+</div>
             <div class="ioi-card-b">
               <div class="row"><div class="label">Top sub (window incidents)</div><div class="value" id="tTop10kSub">—</div></div>
               <div class="row"><div class="label">Hours (YTD)</div><div class="value" id="tTop10kHours">—</div></div>
@@ -1293,8 +1292,7 @@
           <div class="ioi-card injury-card">
             <div class="ioi-card-h">
               <div class="k">Body Part Distribution</div>
-              <div class="meta">Most frequently affected body areas</div>
-            </div>
+</div>
             <div class="ioi-card-b">
               <div class="mini-table" id="bodyPartTable">—</div>
             </div>
@@ -1306,8 +1304,7 @@
           <div class="ioi-card injury-card">
             <div class="ioi-card-h">
               <div class="k">Nature of Injury</div>
-              <div class="meta">Top injury outcomes across the current canon</div>
-            </div>
+</div>
             <div class="ioi-card-b">
               <div class="mini-table" id="natureTable">—</div>
             </div>
@@ -1319,8 +1316,7 @@
           <div class="ioi-card injury-card">
             <div class="ioi-card-h">
               <div class="k">Mechanism</div>
-              <div class="meta">How incidents are occurring operationally</div>
-            </div>
+</div>
             <div class="ioi-card-b">
               <div class="mini-table" id="mechanismTable">—</div>
             </div>
@@ -1332,8 +1328,7 @@
           <div class="ioi-card injury-card">
             <div class="ioi-card-h">
               <div class="k">Day of Week</div>
-              <div class="meta">Incident distribution by weekday</div>
-            </div>
+</div>
             <div class="ioi-card-b">
               <div class="mini-table" id="dayTable">—</div>
             </div>
@@ -1345,8 +1340,7 @@
           <div class="ioi-card injury-card">
             <div class="ioi-card-h">
               <div class="k">Time of Day</div>
-              <div class="meta">Incident distribution by hour block</div>
-            </div>
+</div>
             <div class="ioi-card-b">
               <div class="mini-table" id="timeTable">—</div>
             </div>
@@ -1358,8 +1352,7 @@
           <div class="ioi-card injury-card">
             <div class="ioi-card-h">
               <div class="k">Top Risk Signatures</div>
-              <div class="meta">Body part + mechanism combinations driving patterns</div>
-            </div>
+</div>
             <div class="ioi-card-b">
               <div class="mini-table" id="riskTable">—</div>
             </div>
@@ -2065,8 +2058,7 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       wrap.innerHTML = top.map(r => `
         <div class="card clickable" data-sub="${r.sub}">
           <h3>${r.sub}</h3>
-          <div class="meta">YTD exposure & rates</div>
-          <div class="kv">
+<div class="kv">
             <div class="k">Hours</div><div class="v">${r.hours.toLocaleString()}</div>
             <div class="k">Incidents</div><div class="v">${r.incidents}</div>
             <div class="k">Recordables</div><div class="v">${r.recordables}</div>
@@ -2149,12 +2141,10 @@ function computeTelemetryWindow(incNorm, subsAll, window){
         <div class="inc-row">
           <div>
             <strong>${safeText(r.Date) || "—"}</strong>
-            <div class="meta">${safeText(r.IncidentID) || "—"}</div>
-          </div>
+</div>
           <div>
             <strong>${safeText(r.Subcontractor) || "—"} ${pillForSeverity(r.Severity)}</strong>
-            <div class="meta">${safeText(r.Project) || ""}</div>
-          </div>
+</div>
           <div style="text-align:right;">
             ${r.ReportLink ? `<a class="link" href="${r.ReportLink}" target="_blank" rel="noopener">View report</a>` : `<span class="small">—</span>`}
           </div>
@@ -2268,12 +2258,10 @@ function computeTelemetryWindow(incNorm, subsAll, window){
         <div class="inc-row">
           <div>
             <strong>${safeText(r.Date) || "—"}</strong>
-            <div class="meta">${safeText(r.IncidentID) || "—"}</div>
-          </div>
+</div>
           <div>
             <strong>${safeText(r.Subcontractor) || "—"} ${pillForSeverity(r.Severity)}</strong>
-            <div class="meta">${safeText(r.Project) || ""}</div>
-          </div>
+</div>
           <div style="text-align:right;">
             ${r.ReportLink ? `<a class="link" href="${r.ReportLink}" target="_blank" rel="noopener">View report</a>` : `<span class="small">—</span>`}
           </div>
