@@ -639,7 +639,7 @@
     /* ---------- Subcontractor Cards Grid ---------- */
     .grid-3{
       display:grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
     }
     @media (max-width: 980px){
@@ -1022,15 +1022,10 @@
     }
     .injury-grid{
       margin-top: 10px;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .injury-card{
       min-height: 320px;
-    }
-    @media (max-width: 1400px){
-      .injury-grid{
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
     }
     @media (max-width: 1100px){
       .injury-grid{
@@ -1238,7 +1233,9 @@
               <div class="row"><div class="label">Top area (sub + project)</div><div class="value" id="tTopArea">—</div></div>
               <div class="row"><div class="label">Concentration (top area share)</div><div class="value" id="tConcShare">—</div></div>
             </div>
-            
+            <div class="ioi-card-f">
+              <span class="muted">Distribution & shares</span>
+            </div>
           </div>
 
           <div class="ioi-card" id="ioiCardTopSubs">
@@ -1249,7 +1246,9 @@
             <div class="ioi-card-b">
               <div class="mini-table" id="tTopSubsTable">—</div>
             </div>
-            
+            <div class="ioi-card-f">
+              <span class="muted">Counts by subcontractor</span>
+            </div>
           </div>
 
           <div class="ioi-card" id="ioiCardTopProjects">
@@ -1260,7 +1259,9 @@
             <div class="ioi-card-b">
               <div class="mini-table" id="tTopProjectsTable">—</div>
             </div>
-            
+            <div class="ioi-card-f">
+              <span class="muted">Counts by project</span>
+            </div>
           </div>
 
           <div class="ioi-card" id="ioiCard10k">
@@ -1273,7 +1274,9 @@
               <div class="row"><div class="label">Window incidents (that sub)</div><div class="value" id="tTop10kInc">—</div></div>
               <div class="row"><div class="label">Data source</div><div class="value">SUBS + INCIDENTS</div></div>
             </div>
-            
+            <div class="ioi-card-f">
+              <span class="muted">Filtered ranking</span>
+            </div>
           </div>
 
         </div>
@@ -1293,7 +1296,9 @@
             <div class="ioi-card-b">
               <div class="mini-table" id="bodyPartTable">—</div>
             </div>
-            
+            <div class="ioi-card-f">
+              <span class="muted">Counts by body part</span>
+            </div>
           </div>
 
           <div class="ioi-card injury-card">
@@ -1303,7 +1308,9 @@
             <div class="ioi-card-b">
               <div class="mini-table" id="natureTable">—</div>
             </div>
-            
+            <div class="ioi-card-f">
+              <span class="muted">Counts by injury type</span>
+            </div>
           </div>
 
           <div class="ioi-card injury-card">
@@ -1313,7 +1320,9 @@
             <div class="ioi-card-b">
               <div class="mini-table" id="mechanismTable">—</div>
             </div>
-            
+            <div class="ioi-card-f">
+              <span class="muted">Counts by mechanism</span>
+            </div>
           </div>
 
           <div class="ioi-card injury-card">
@@ -1323,7 +1332,9 @@
             <div class="ioi-card-b">
               <div class="mini-table" id="dayTable">—</div>
             </div>
-            
+            <div class="ioi-card-f">
+              <span class="muted">Counts by weekday</span>
+            </div>
           </div>
 
           <div class="ioi-card injury-card">
@@ -1333,7 +1344,9 @@
             <div class="ioi-card-b">
               <div class="mini-table" id="timeTable">—</div>
             </div>
-            
+            <div class="ioi-card-f">
+              <span class="muted">Counts by time of day</span>
+            </div>
           </div>
 
           <div class="ioi-card injury-card">
@@ -1343,21 +1356,9 @@
             <div class="ioi-card-b">
               <div class="mini-table" id="riskTable">—</div>
             </div>
-            
-          </div>
-
-          
-            <div class="ioi-card-b" id="riskWindowTable">
-              <div class="dim-empty">No data available.</div>
+            <div class="ioi-card-f">
+              <span class="muted">Counts by combined signature</span>
             </div>
-            
-          </div>
-
-          
-            <div class="ioi-card-b">
-              <div class="mini-table" id="heatmapTable">—</div>
-            </div>
-            
           </div>
         </div>
 
@@ -2335,8 +2336,6 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       if (dayEl) dayEl.innerHTML = buildDimensionTable(day, { topN: 7 });
       renderTimeTable(timeRows);
       renderRiskTable(riskRows);
-      renderOperationalRiskWindow(timeRows, bodyRows, mechanismRows);
-      renderHeatmap(riskRows);
     }
 
 
@@ -2370,97 +2369,6 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       el.innerHTML = buildDimensionTable(data, { topN: 12 });
     }
 
-
-    function topLabel(rows){
-      const ordered = (rows || []).slice().sort((a,b)=> (b.count||0) - (a.count||0));
-      return ordered.length ? ordered[0].label : "—";
-    }
-
-    function renderOperationalRiskWindow(timeRows, bodyRows, mechanismRows){
-      const el = document.getElementById("riskWindowTable");
-      if(!el) return;
-
-      const times = (timeRows || []).map(r => {
-        const label = String(r["Hour Range"] || r.HourRange || r.Hour || r.Label || "").trim();
-        const count = toNumber(r.Count ?? r.count ?? 0);
-        return { label, count };
-      }).filter(x => x.label);
-
-      const body = normalizeDimensionRows(bodyRows, ["BodyPart"]);
-      const mech = normalizeDimensionRows(mechanismRows, ["Mechanism"]);
-
-      if(!times.length){
-        el.innerHTML = '<div class="dim-empty">No data available.</div>';
-        return;
-      }
-
-      const ordered = times.slice().sort((a,b)=> b.count - a.count);
-      const peak = ordered[0];
-      const total = times.reduce((a,b)=> a + (b.count||0), 0);
-      const share = total ? fmtPct(peak.count / total) : "—";
-
-      el.innerHTML = `
-        <div class="row"><div class="label">Peak window</div><div class="value">${escapeHtml(peak.label)}</div></div>
-        <div class="row"><div class="label">Incidents in window</div><div class="value mono">${peak.count}</div></div>
-        <div class="row"><div class="label">Window share</div><div class="value mono">${share}</div></div>
-        <div class="row"><div class="label">Dominant mechanism</div><div class="value">${escapeHtml(topLabel(mech))}</div></div>
-        <div class="row"><div class="label">Dominant body part</div><div class="value">${escapeHtml(topLabel(body))}</div></div>
-      `;
-    }
-
-    function renderHeatmap(riskRows){
-      const el = document.getElementById("heatmapTable");
-      if(!el) return;
-
-      const rows = (riskRows || []).map(r => {
-        const body = String(r.BodyPart || r["Body Part"] || "").trim();
-        const mech = String(r.Mechanism || "").trim();
-        const count = toNumber(r.Count ?? r.count ?? 0);
-        return { body, mech, count };
-      }).filter(x => x.body && x.mech && x.count);
-
-      if(!rows.length){
-        el.innerHTML = '<div class="dim-empty">No data available.</div>';
-        return;
-      }
-
-      const bodyTotals = new Map();
-      const mechTotals = new Map();
-      rows.forEach(r => {
-        bodyTotals.set(r.body, (bodyTotals.get(r.body) || 0) + r.count);
-        mechTotals.set(r.mech, (mechTotals.get(r.mech) || 0) + r.count);
-      });
-
-      const bodies = Array.from(bodyTotals.entries()).sort((a,b)=> b[1]-a[1]).slice(0,4).map(x=>x[0]);
-      const mechs = Array.from(mechTotals.entries()).sort((a,b)=> b[1]-a[1]).slice(0,4).map(x=>x[0]);
-
-      const matrix = {}
-      rows.forEach(r => {
-        const key = `${r.body}|||${r.mech}`;
-        matrix[key] = (matrix[key] || 0) + r.count;
-      });
-
-      const htmlRows = bodies.map(body => `
-        <tr>
-          <td>${escapeHtml(body)}</td>
-          ${mechs.map(mech => `<td class="mono">${matrix[`${body}|||${mech}`] || 0}</td>`).join("")}
-        </tr>
-      `).join("");
-
-      el.innerHTML = `
-        <table class="mini">
-          <thead>
-            <tr>
-              <th>Body</th>
-              ${mechs.map(m => `<th>${escapeHtml(m)}</th>`).join("")}
-            </tr>
-          </thead>
-          <tbody>
-            ${htmlRows}
-          </tbody>
-        </table>
-      `;
-    }
 
     /*** init ***/
     (async function init(){
