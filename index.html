@@ -1002,6 +1002,42 @@
       white-space: nowrap;
     }
 
+    .risk-alerts{
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+    }
+    .risk-alert{
+      padding: 12px 12px;
+      border-radius: 14px;
+      background: rgba(159,28,31,.12);
+      border: 1px solid rgba(159,28,31,.24);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    .risk-alert .eyebrow{
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #ffd6d6;
+      margin-bottom: 6px;
+    }
+    .risk-alert .msg{
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: var(--cream);
+    }
+    .risk-alert .meta{
+      margin-top: 6px;
+      font-size: 12px;
+      color: rgba(242,239,235,.72);
+    }
+    .risk-alert.neutral{
+      background: rgba(255,255,255,.04);
+      border-color: rgba(255,255,255,.10);
+    }
+
     /* ---------- Injury Analytics ---------- */
     .injury-section{
       margin: 26px 0 34px;
@@ -1274,6 +1310,21 @@
             </div>
             <div class="ioi-card-f">
               <span class="muted">Filtered ranking</span>
+            </div>
+          </div>
+
+          <div class="ioi-card" id="riskSignalCard">
+            <div class="ioi-card-h">
+              <div class="k">Emerging Risk Signals</div>
+              <div class="meta" id="riskSignalMeta">Window vs baseline</div>
+            </div>
+            <div class="ioi-card-b">
+              <div class="risk-alerts" id="riskSignalList">
+                <div class="small">Scanning incident signatures…</div>
+              </div>
+            </div>
+            <div class="ioi-card-f">
+              <span class="muted">Body part + mechanism spike detection</span>
             </div>
           </div>
 
@@ -1907,6 +1958,117 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       };
     }
 
+
+    function computeEmergingRiskSignals(incNorm, window){
+      const parsed = (d)=>{
+        const x = parseDateAny(d);
+        return x && !isNaN(x) ? x : null;
+      };
+
+      const dates = (incNorm || []).map(x => parsed(x.Date)).filter(Boolean);
+      const end = dates.length ? new Date(Math.max(...dates.map(d=>d.getTime()))) : new Date();
+      end.setHours(23,59,59,999);
+
+      let start;
+      if (String(window).toUpperCase() === "YTD"){
+        start = new Date(end.getFullYear(), 0, 1);
+      } else {
+        const days = Math.max(1, Number(window) || 30);
+        start = new Date(end);
+        start.setDate(start.getDate() - (days - 1));
+      }
+      start.setHours(0,0,0,0);
+
+      const recent = [];
+      const baseline = [];
+
+      for (const r of (incNorm || [])){
+        const d = parsed(r.Date);
+        if (!d) continue;
+
+        const body = String(r.BodyPart || "").trim();
+        const mech = String(r.Mechanism || "").trim();
+        if (!body || !mech) continue;
+
+        const sig = `${body} + ${mech}`;
+        const rec = { sig, body, mech };
+
+        if (d >= start && d <= end) recent.push(rec);
+        else if (d < start) baseline.push(rec);
+      }
+
+      const recentTotal = recent.length;
+      const baselineTotal = baseline.length;
+      if (!recentTotal || !baselineTotal){
+        return { alerts: [], recentTotal, baselineTotal, start, end };
+      }
+
+      const bump = (arr)=>{
+        const m = new Map();
+        for (const r of arr) m.set(r.sig, (m.get(r.sig) || 0) + 1);
+        return m;
+      };
+
+      const recentMap = bump(recent);
+      const baseMap = bump(baseline);
+
+      const alerts = [...recentMap.entries()].map(([sig, recentCount])=>{
+        const baselineCount = baseMap.get(sig) || 0;
+        const recentRate = recentCount / recentTotal;
+        const baselineRate = baselineCount / baselineTotal;
+        const ratio = (recentRate + 0.0001) / (baselineRate + 0.0001);
+        const delta = recentRate - baselineRate;
+        return {
+          sig,
+          recentCount,
+          baselineCount,
+          recentRate,
+          baselineRate,
+          ratio,
+          delta
+        };
+      }).filter(x =>
+        x.recentCount >= 2 &&
+        x.ratio >= 1.5 &&
+        x.delta > 0
+      ).sort((a,b)=>
+        b.ratio - a.ratio ||
+        b.delta - a.delta ||
+        b.recentCount - a.recentCount
+      ).slice(0,3);
+
+      return { alerts, recentTotal, baselineTotal, start, end };
+    }
+
+    function renderEmergingRiskSignals(model){
+      const list = document.getElementById("riskSignalList");
+      const meta = document.getElementById("riskSignalMeta");
+      if (!list) return;
+
+      if (meta){
+        meta.textContent = `Recent ${model.recentTotal} vs baseline ${model.baselineTotal}`;
+      }
+
+      if (!model.alerts || !model.alerts.length){
+        list.innerHTML = `
+          <div class="risk-alert neutral">
+            <div class="eyebrow">Stable window</div>
+            <div class="msg">No emerging risk signals detected in the selected window.</div>
+            <div class="meta">No body-part/mechanism signature cleared the spike threshold against baseline.</div>
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = model.alerts.map(a => `
+        <div class="risk-alert">
+          <div class="eyebrow">⚠ Emerging Risk Signal</div>
+          <div class="msg">${escapeHtml(a.sig)} injuries are ${a.ratio.toFixed(1)}× above baseline.</div>
+          <div class="meta">Window: ${a.recentCount}/${model.recentTotal} · Baseline: ${a.baselineCount}/${model.baselineTotal}</div>
+        </div>
+      `).join("");
+    }
+
     function fmtPct(x){
       if (x === null || x === undefined) return "—";
       return (x*100).toFixed(1) + "%";
@@ -2153,6 +2315,9 @@ function computeTelemetryWindow(incNorm, subsAll, window){
         Subcontractor: r.Subcontractor || r.subcontractor || r.Sub || "",
         Project: r.Project || r.project || "",
         Severity: r.Severity || r.severity || "",
+        BodyPart: r.BodyPart || r["Body Part"] || r.bodypart || "",
+        Mechanism: r.Mechanism || r.mechanism || "",
+        NatureOfInjury: r.NatureOfInjury || r["Nature Of Injury"] || r.natureofinjury || "",
         ReportLink: r.ReportLink || r.reportlink || r.Link || ""
       })).filter(x => x.IncidentID && String(x.IncidentID).trim().toLowerCase() !== "incidentid");
     }
@@ -2431,7 +2596,9 @@ function computeTelemetryWindow(incNorm, subsAll, window){
         function updateTelemetry(){
           const win = (ACTIVE_WINDOW === "YTD") ? "YTD" : ACTIVE_WINDOW;
           const tele = computeTelemetryWindow(INC_NORM, SUBS_ALL, win);
+          const signals = computeEmergingRiskSignals(INC_NORM, win);
           renderTelemetry(tele);
+          renderEmergingRiskSignals(signals);
 
           // update labels
           const title = document.getElementById("ioiWindowTitle");
