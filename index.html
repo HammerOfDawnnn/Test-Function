@@ -1959,115 +1959,196 @@ function computeTelemetryWindow(incNorm, subsAll, window){
     }
 
 
-    function computeEmergingRiskSignals(incNorm, window){
-      const parsed = (d)=>{
-        const x = parseDateAny(d);
-        return x && !isNaN(x) ? x : null;
-      };
+    function analyzeEmergingRiskSignals(incidents, start, end) {
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  const dayDiff = Math.max(1, Math.round((end - start) / MS_PER_DAY) + 1);
 
-      const dates = (incNorm || []).map(x => parsed(x.Date)).filter(Boolean);
-      const end = dates.length ? new Date(Math.max(...dates.map(d=>d.getTime()))) : new Date();
-      end.setHours(23,59,59,999);
+  const baselineMultiplier = 4;
+  const baselineDays = Math.max(30, dayDiff * baselineMultiplier);
 
-      let start;
-      if (String(window).toUpperCase() === "YTD"){
-        start = new Date(end.getFullYear(), 0, 1);
-      } else {
-        const days = Math.max(1, Number(window) || 30);
-        start = new Date(end);
-        start.setDate(start.getDate() - (days - 1));
-      }
-      start.setHours(0,0,0,0);
+  const baselineEnd = new Date(start);
+  baselineEnd.setDate(baselineEnd.getDate() - 1);
 
-      const recent = [];
-      const baseline = [];
+  const baselineStart = new Date(start);
+  baselineStart.setDate(baselineStart.getDate() - baselineDays);
 
-      for (const r of (incNorm || [])){
-        const d = parsed(r.Date);
-        if (!d) continue;
+  const inRange = (d, a, b) => d && d >= a && d <= b;
 
-        const body = String(r.BodyPart || "").trim();
-        const mech = String(r.Mechanism || "").trim();
-        if (!body || !mech) continue;
+  const clean = v => String(v || "").trim();
+  const sigKey = r => `${clean(r.BodyPart)} + ${clean(r.Mechanism)}`;
 
-        const sig = `${body} + ${mech}`;
-        const rec = { sig, body, mech };
+  const validRows = (incidents || []).filter(r =>
+    r &&
+    r.DateObj instanceof Date &&
+    !isNaN(r.DateObj) &&
+    clean(r.BodyPart) &&
+    clean(r.Mechanism)
+  );
 
-        if (d >= start && d <= end) recent.push(rec);
-        else if (d < start) baseline.push(rec);
-      }
+  const recentRows = validRows.filter(r => inRange(r.DateObj, start, end));
+  const baselineRows = validRows.filter(r => inRange(r.DateObj, baselineStart, baselineEnd));
 
-      const recentTotal = recent.length;
-      const baselineTotal = baseline.length;
-      if (!recentTotal || !baselineTotal){
-        return { alerts: [], recentTotal, baselineTotal, start, end };
-      }
+  const recentTotal = recentRows.length;
+  const baselineTotal = baselineRows.length;
 
-      const bump = (arr)=>{
-        const m = new Map();
-        for (const r of arr) m.set(r.sig, (m.get(r.sig) || 0) + 1);
-        return m;
-      };
+  const countBy = rows => {
+    const map = new Map();
+    rows.forEach(r => {
+      const key = sigKey(r);
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return map;
+  };
 
-      const recentMap = bump(recent);
-      const baseMap = bump(baseline);
+  const recentCounts = countBy(recentRows);
+  const baselineCounts = countBy(baselineRows);
 
-      const alerts = [...recentMap.entries()].map(([sig, recentCount])=>{
-        const baselineCount = baseMap.get(sig) || 0;
-        const recentRate = recentCount / recentTotal;
-        const baselineRate = baselineCount / baselineTotal;
-        const ratio = (recentRate + 0.0001) / (baselineRate + 0.0001);
-        const delta = recentRate - baselineRate;
-        return {
-          sig,
-          recentCount,
+  const MIN_WINDOW_COUNT = 2;
+  const MIN_BASELINE_COUNT_FOR_RATIO = 3;
+  const MIN_SHARE_RATIO = 1.75;
+  const MIN_ABSOLUTE_SHARE_LIFT = 0.05;
+  const MAX_DISPLAY_RATIO = 9.9;
+
+  const alerts = [];
+
+  for (const [signature, windowCount] of recentCounts.entries()) {
+    if (windowCount < MIN_WINDOW_COUNT) continue;
+
+    const baselineCount = baselineCounts.get(signature) || 0;
+    const windowShare = recentTotal ? windowCount / recentTotal : 0;
+    const baselineShare = baselineTotal ? baselineCount / baselineTotal : 0;
+
+    const absoluteLift = windowShare - baselineShare;
+
+    // Sparse baseline: treat as emerging pattern, not fake giant ratio
+    if (baselineCount < MIN_BASELINE_COUNT_FOR_RATIO) {
+      if (windowCount >= 3 && windowShare >= 0.12) {
+        alerts.push({
+          type: "new",
+          severity: windowCount >= 4 ? "critical" : "elevated",
+          signature,
+          windowCount,
           baselineCount,
-          recentRate,
-          baselineRate,
-          ratio,
-          delta
-        };
-      }).filter(x =>
-        x.recentCount >= 2 &&
-        x.ratio >= 1.5 &&
-        x.delta > 0
-      ).sort((a,b)=>
-        b.ratio - a.ratio ||
-        b.delta - a.delta ||
-        b.recentCount - a.recentCount
-      ).slice(0,3);
-
-      return { alerts, recentTotal, baselineTotal, start, end };
+          recentTotal,
+          baselineTotal,
+          windowShare,
+          baselineShare,
+          ratio: null,
+          label: "NEW EMERGING PATTERN",
+          message: `${signature} injuries are appearing as a new concentration in the selected window.`,
+          detail: `Window: ${windowCount}/${recentTotal}. Baseline: ${baselineCount}/${baselineTotal}`
+        });
+      }
+      continue;
     }
 
-    function renderEmergingRiskSignals(model){
-      const list = document.getElementById("riskSignalList");
-      const meta = document.getElementById("riskSignalMeta");
-      if (!list) return;
+    if (!baselineShare) continue;
 
-      if (meta){
-        meta.textContent = `Recent ${model.recentTotal} vs baseline ${model.baselineTotal}`;
+    const shareRatio = windowShare / baselineShare;
+
+    if (shareRatio >= MIN_SHARE_RATIO && absoluteLift >= MIN_ABSOLUTE_SHARE_LIFT) {
+      const cappedRatio = Math.min(shareRatio, MAX_DISPLAY_RATIO);
+      const roundedRatio = Math.round(cappedRatio * 10) / 10;
+
+      let severity = "elevated";
+      let label = "ELEVATED RISK";
+
+      if (shareRatio >= 3 || absoluteLift >= 0.12) {
+        severity = "critical";
+        label = "CRITICAL SPIKE";
       }
 
-      if (!model.alerts || !model.alerts.length){
-        list.innerHTML = `
-          <div class="risk-alert neutral">
-            <div class="eyebrow">Stable window</div>
-            <div class="msg">No emerging risk signals detected in the selected window.</div>
-            <div class="meta">No body-part/mechanism signature cleared the spike threshold against baseline.</div>
-          </div>
-        `;
-        return;
-      }
-
-      list.innerHTML = model.alerts.map(a => `
-        <div class="risk-alert">
-          <div class="eyebrow">⚠ Emerging Risk Signal</div>
-          <div class="msg">${escapeHtml(a.sig)} injuries are ${a.ratio.toFixed(1)}× above baseline.</div>
-          <div class="meta">Window: ${a.recentCount}/${model.recentTotal} · Baseline: ${a.baselineCount}/${model.baselineTotal}</div>
-        </div>
-      `).join("");
+      alerts.push({
+        type: "ratio",
+        severity,
+        signature,
+        windowCount,
+        baselineCount,
+        recentTotal,
+        baselineTotal,
+        windowShare,
+        baselineShare,
+        ratio: roundedRatio,
+        label,
+        message: `${signature} injuries are ${roundedRatio}× above baseline.`,
+        detail: `Window: ${windowCount}/${recentTotal}. Baseline: ${baselineCount}/${baselineTotal}`
+      });
     }
+  }
+
+  alerts.sort((a, b) => {
+    const score = x => {
+      if (x.type === "new") return (x.windowCount * 10) + x.windowShare;
+      return ((x.ratio || 0) * 10) + (x.windowCount * 2) + x.windowShare;
+    };
+    return score(b) - score(a);
+  });
+
+  return {
+    alerts: alerts.slice(0, 3),
+    recentTotal,
+    baselineTotal,
+    baselineStart,
+    baselineEnd,
+    start,
+    end
+  };
+}
+
+function renderEmergingRiskSignals() {
+  const host = document.getElementById("emergingRiskSignals");
+  const meta = document.getElementById("emergingRiskSignalsMeta");
+  if (!host || !meta) return;
+
+  const result = analyzeEmergingRiskSignals(
+    state.filteredIncidents || [],
+    state.startDate,
+    state.endDate
+  );
+
+  meta.textContent = `Recent ${result.recentTotal} vs baseline ${result.baselineTotal}`;
+
+  if (!result.recentTotal) {
+    host.innerHTML = `
+      <div class="alert-card stable">
+        <div class="alert-kicker">STABLE WINDOW</div>
+        <div class="alert-title">No incidents in the selected window.</div>
+        <div class="alert-detail">There are no body-part/mechanism signatures to evaluate for this period.</div>
+      </div>
+    `;
+    return;
+  }
+
+  if (!result.baselineTotal) {
+    host.innerHTML = `
+      <div class="alert-card stable">
+        <div class="alert-kicker">INSUFFICIENT BASELINE</div>
+        <div class="alert-title">Historical comparison window is too thin for spike detection.</div>
+        <div class="alert-detail">Recent incidents: ${result.recentTotal}. Add more historical incident depth to enable stronger baseline comparisons.</div>
+      </div>
+    `;
+    return;
+  }
+
+  if (!result.alerts.length) {
+    host.innerHTML = `
+      <div class="alert-card stable">
+        <div class="alert-kicker">STABLE WINDOW</div>
+        <div class="alert-title">No emerging risk signals detected in the selected window.</div>
+        <div class="alert-detail">No body-part/mechanism signature cleared the spike threshold against baseline.</div>
+      </div>
+    `;
+    return;
+  }
+
+  host.innerHTML = result.alerts.map(a => `
+    <div class="alert-card ${a.severity === "critical" ? "critical" : "elevated"}">
+      <div class="alert-kicker">⚠ ${a.label}</div>
+      <div class="alert-title">${a.message}</div>
+      <div class="alert-detail">${a.detail}</div>
+    </div>
+  `).join("");
+}
 
     function fmtPct(x){
       if (x === null || x === undefined) return "—";
