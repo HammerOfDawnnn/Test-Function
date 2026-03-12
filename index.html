@@ -1293,14 +1293,12 @@
               <div class="row"><div class="label">Concentration (top area share)</div><div class="value" id="tConcShare">—</div></div>
             </div>
             <div class="ioi-card-f">
-              <span class="muted">Distribution & shares</span>
             </div>
           </div>
 
           <div class="ioi-card" id="ioiCardTopSubs">
             <div class="ioi-card-h">
               <div class="k">Top Subcontractors</div>
-              <div class="meta" id="ioiWindowMeta">Window incidents</div>
             </div>
             <div class="ioi-card-b">
               <div class="mini-table" id="tTopSubsTable">—</div>
@@ -1312,7 +1310,6 @@
           <div class="ioi-card" id="ioiCardTopProjects">
             <div class="ioi-card-h">
               <div class="k">Top Projects</div>
-              <div class="meta" id="ioiWindowMeta">Window incidents</div>
             </div>
             <div class="ioi-card-b">
               <div class="mini-table" id="tTopProjectsTable">—</div>
@@ -1326,13 +1323,12 @@
               <div class="k">≥10,000 Hours Filter</div>
 </div>
             <div class="ioi-card-b">
-              <div class="row"><div class="label">Top sub (window incidents)</div><div class="value" id="tTop10kSub">—</div></div>
+              <div class="row"><div class="label">Top sub</div><div class="value" id="tTop10kSub">—</div></div>
               <div class="row"><div class="label">Hours (YTD)</div><div class="value" id="tTop10kHours">—</div></div>
-              <div class="row"><div class="label">Window incidents (that sub)</div><div class="value" id="tTop10kInc">—</div></div>
+              <div class="row"><div class="label">Window incidents</div><div class="value" id="tTop10kInc">—</div></div>
               <div class="row"><div class="label">Data source</div><div class="value">SUBS + INCIDENTS</div></div>
             </div>
             <div class="ioi-card-f">
-              <span class="muted">Filtered ranking</span>
             </div>
           </div>
 
@@ -1351,7 +1347,6 @@
               </div>
             </div>
             <div class="ioi-card-f">
-              <span class="muted">Body part + mechanism spike detection</span>
             </div>
           </div>
 
@@ -1361,7 +1356,6 @@
       <div class="injury-section">
         <div class="injury-section-head">
           <h2>Injury Signature Analytics</h2>
-          <p>Executive rollups showing what is getting hurt, how it is getting hurt, and when incidents are occurring.</p>
         </div>
 
         <div class="ioi-insight-grid injury-grid">
@@ -1604,6 +1598,7 @@
     const KPI_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=152373673&single=true&output=csv";
     const SUBS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=466735545&single=true&output=csv";
     const INCIDENTS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=535693387&single=true&output=csv";
+    const INCIDENTS_BASELINE_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=1844704592&single=true&output=csv";
 
     /* ✅ PASTE YOUR PUB_IOI PUBLISHED CSV LINK HERE */
     const IOI_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=303885721&single=true&output=csv";
@@ -1739,7 +1734,8 @@
 
     
     /*** IOI INSIGHTS (neutral + factual) ***/
-    let INC_NORM = [];
+    let CURRENT_INC_NORM = [];
+    let BASELINE_INC_NORM = [];
 
     function parseDateAny(s){
       if (!s) return null;
@@ -2201,7 +2197,7 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       const meta = document.getElementById("emergingRiskSignalsMeta");
       if (!host || !meta || !tele) return;
 
-      const result = computeEmergingRiskSignals(INC_NORM || [], tele.start, tele.end);
+      const result = computeEmergingRiskSignals(BASELINE_INC_NORM || [], tele.start, tele.end);
       meta.textContent = `Recent ${result.recentTotal} vs baseline ${result.baselineTotal}`;
 
       if (!result.recentTotal) {
@@ -2659,10 +2655,11 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       try {
         setStatus("Loading data…");
 
-        const [kpis, subs, inc, bodyParts, natures, mechanisms, days, timeRows, riskRows] = await Promise.all([
+        const [kpis, subs, inc, incBaseline, bodyParts, natures, mechanisms, days, timeRows, riskRows] = await Promise.all([
           fetchTable(KPI_CSV),
           fetchTable(SUBS_CSV),
           fetchTable(INCIDENTS_CSV),
+          fetchTable(INCIDENTS_BASELINE_CSV),
           fetchTable(BODY_PART_CSV),
           fetchTable(NATURE_CSV),
           fetchTable(MECHANISM_CSV),
@@ -2671,8 +2668,11 @@ function computeTelemetryWindow(incNorm, subsAll, window){
           fetchTable(RISK_SIGNATURES_CSV)
         ]);
 
-        // Normalize incidents once for IOI drivers (neutral rollup)
-        INC_NORM = normalizeIncidentRows(inc);
+        // Current-year incidents power visible dashboard content.
+        CURRENT_INC_NORM = normalizeIncidentRows(inc);
+
+        // Master baseline incidents stay behind the scenes for Emerging Risk only.
+        BASELINE_INC_NORM = normalizeIncidentRows(incBaseline);
 
         renderKPIs(kpis);
         renderSubs(subs);
@@ -2724,7 +2724,7 @@ function computeTelemetryWindow(incNorm, subsAll, window){
 
         function updateTelemetry(){
           const win = (ACTIVE_WINDOW === "YTD") ? "YTD" : ACTIVE_WINDOW;
-          const tele = computeTelemetryWindow(INC_NORM, SUBS_ALL, win);
+          const tele = computeTelemetryWindow(CURRENT_INC_NORM, SUBS_ALL, win);
           renderTelemetry(tele);
           renderEmergingRiskSignals(tele);
 
@@ -2764,6 +2764,8 @@ function computeTelemetryWindow(incNorm, subsAll, window){
   </script>
 </body>
 </html>
+
+
 
 
 
