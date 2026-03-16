@@ -2351,7 +2351,7 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       if (rows.length > cap){
         list.innerHTML += `<div class="small" style="padding-top:10px;">Showing first ${cap}. Refine using the Incidents search below if needed.</div>`;
       }
-    }
+    
 
     function normalizeIncidentRows(rows){
       const pick = (row, candidates=[]) => {
