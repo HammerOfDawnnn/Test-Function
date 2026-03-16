@@ -2331,27 +2331,6 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       return "";
     }
 
-      const cap = 25;
-      const shown = rows.slice(0, cap);
-
-      list.innerHTML = shown.map(r => `
-        <div class="inc-row">
-          <div>
-            <strong>${safeText(r.Date) || "—"}</strong>
-</div>
-          <div>
-            <strong>${safeText(r.Subcontractor) || "—"} ${pillForSeverity(r.Severity)}</strong>
-</div>
-          <div style="text-align:right;">
-            ${r.ReportLink ? `<a class="link" href="${r.ReportLink}" target="_blank" rel="noopener">View report</a>` : `<span class="small">—</span>`}
-          </div>
-        </div>
-      `).join("");
-
-      if (rows.length > cap){
-        list.innerHTML += `<div class="small" style="padding-top:10px;">Showing first ${cap}. Refine using the Incidents search below if needed.</div>`;
-      }
-    
 
     function normalizeIncidentRows(rows){
       const pick = (row, candidates=[]) => {
