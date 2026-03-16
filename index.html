@@ -1447,16 +1447,6 @@
         <div class="grid-3" id="subCards"></div>
         <div class="status" id="subHint"></div>
 
-        <div class="panel" id="subIncPanel" style="display:none; margin-top:14px;">
-          <div class="panel-head">
-            <div>
-              <div class="title" id="subIncTitle">Incidents —</div>
-              <div class="hint" id="subIncHint">Showing incidents for selected subcontractor.</div>
-            </div>
-            <button class="btn" id="subIncClose" type="button">Close</button>
-          </div>
-          <div id="subIncList"></div>
-        </div>
       </div>
 
 
@@ -1598,7 +1588,6 @@
     const KPI_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=152373673&single=true&output=csv";
     const SUBS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=466735545&single=true&output=csv";
     const INCIDENTS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=535693387&single=true&output=csv";
-    const INCIDENTS_BASELINE_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=1844704592&single=true&output=csv";
 
     /* ✅ PASTE YOUR PUB_IOI PUBLISHED CSV LINK HERE */
     const IOI_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRrvHagkDQ72AeZe3sWPeJ_DJKgqL9Ipfw9WCdX0sAsRNxOhg_tJ9IhjkIo0Kij2vb4pBXqKyE6cCNJ/pub?gid=303885721&single=true&output=csv";
@@ -1734,8 +1723,7 @@
 
     
     /*** IOI INSIGHTS (neutral + factual) ***/
-    let CURRENT_INC_NORM = [];
-    let BASELINE_INC_NORM = [];
+    let INC_NORM = [];
 
     function parseDateAny(s){
       if (!s) return null;
@@ -2197,7 +2185,7 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       const meta = document.getElementById("emergingRiskSignalsMeta");
       if (!host || !meta || !tele) return;
 
-      const result = computeEmergingRiskSignals(BASELINE_INC_NORM || [], tele.start, tele.end);
+      const result = computeEmergingRiskSignals(INC_NORM || [], tele.start, tele.end);
       meta.textContent = `Recent ${result.recentTotal} vs baseline ${result.baselineTotal}`;
 
       if (!result.recentTotal) {
@@ -2302,7 +2290,7 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       const top = [...SUBS_ALL].sort((a,b)=> b.hours - a.hours).slice(0, 9);
       const wrap = document.getElementById("subCards");
       wrap.innerHTML = top.map(r => `
-        <div class="card clickable" data-sub="${r.sub}">
+        <div class="card" data-sub="${r.sub}">
           <h3>${r.sub}</h3>
 <div class="kv">
             <div class="k">Hours</div><div class="v">${r.hours.toLocaleString()}</div>
@@ -2314,16 +2302,9 @@ function computeTelemetryWindow(incNorm, subsAll, window){
         </div>
       `).join("");
 
-      [...wrap.querySelectorAll(".card.clickable")].forEach(card=>{
-        card.addEventListener("click", ()=>{
-          const sub = card.dataset.sub || "";
-          setActiveSubCard(sub);
-          openSubIncidentsPanel(sub);
-        });
-      });
 
       document.getElementById("subHint").textContent =
-        `Showing top ${top.length} by hours. Use lookup to view any of ${SUBS_ALL.length} subcontractors.`;
+        `Showing top ${top.length} by hours. Use the lookup to view any of ${SUBS_ALL.length} subcontractors.`;
 
       const pick = document.getElementById("subPick");
       if (!pick.dataset.wired){
@@ -2341,15 +2322,6 @@ function computeTelemetryWindow(incNorm, subsAll, window){
 
     /*** INCIDENTS ***/
     let INC_ALL = [];
-    let ACTIVE_SUB = "";
-
-    function setActiveSubCard(sub){
-      ACTIVE_SUB = sub || "";
-      document.querySelectorAll("#subCards .card.clickable").forEach(el=>{
-        if ((el.dataset.sub || "") === ACTIVE_SUB) el.classList.add("active");
-        else el.classList.remove("active");
-      });
-    }
 
     function pillForSeverity(sev){
       const s = (sev || "").toLowerCase();
@@ -2358,27 +2330,6 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       if (s === "low") return `<span class="pill low">Low</span>`;
       return "";
     }
-
-    function openSubIncidentsPanel(sub){
-      const panel = document.getElementById("subIncPanel");
-      const title = document.getElementById("subIncTitle");
-      const hint = document.getElementById("subIncHint");
-      const list = document.getElementById("subIncList");
-
-      const s = (sub || "").trim();
-      title.textContent = s ? `Incidents — ${s}` : "Incidents —";
-      panel.style.display = "block";
-
-      const rows = [...INC_ALL]
-        .filter(r => String(r.Subcontractor || "").trim().toLowerCase() === s.toLowerCase())
-        .sort((a,b)=> String(b.Date||"").localeCompare(String(a.Date||"")));
-
-      hint.textContent = rows.length ? `${rows.length} incident(s) found.` : "No incidents found for this subcontractor.";
-
-      if (!rows.length){
-        list.innerHTML = `<div class="small">No incidents match.</div>`;
-        return;
-      }
 
       const cap = 25;
       const shown = rows.slice(0, cap);
@@ -2655,11 +2606,10 @@ function computeTelemetryWindow(incNorm, subsAll, window){
       try {
         setStatus("Loading data…");
 
-        const [kpis, subs, inc, incBaseline, bodyParts, natures, mechanisms, days, timeRows, riskRows] = await Promise.all([
+        const [kpis, subs, inc, bodyParts, natures, mechanisms, days, timeRows, riskRows] = await Promise.all([
           fetchTable(KPI_CSV),
           fetchTable(SUBS_CSV),
           fetchTable(INCIDENTS_CSV),
-          fetchTable(INCIDENTS_BASELINE_CSV),
           fetchTable(BODY_PART_CSV),
           fetchTable(NATURE_CSV),
           fetchTable(MECHANISM_CSV),
@@ -2668,11 +2618,8 @@ function computeTelemetryWindow(incNorm, subsAll, window){
           fetchTable(RISK_SIGNATURES_CSV)
         ]);
 
-        // Current-year incidents power visible dashboard content.
-        CURRENT_INC_NORM = normalizeIncidentRows(inc);
-
-        // Master baseline incidents stay behind the scenes for Emerging Risk only.
-        BASELINE_INC_NORM = normalizeIncidentRows(incBaseline);
+        // Normalize incidents once for IOI drivers (neutral rollup)
+        INC_NORM = normalizeIncidentRows(inc);
 
         renderKPIs(kpis);
         renderSubs(subs);
@@ -2689,13 +2636,6 @@ function computeTelemetryWindow(incNorm, subsAll, window){
           return db - da;
         })[0];
         if (latest) renderIncidentDetail(latest);
-
-        // Sub incident panel close
-        const subClose = document.getElementById("subIncClose");
-        subClose.addEventListener("click", ()=>{
-          document.getElementById("subIncPanel").style.display = "none";
-          setActiveSubCard("");
-        });
 
         document.getElementById("q").addEventListener("input", ()=>renderIncidentsTable(inc));
         document.getElementById("sev").addEventListener("change", ()=>renderIncidentsTable(inc));
@@ -2724,7 +2664,7 @@ function computeTelemetryWindow(incNorm, subsAll, window){
 
         function updateTelemetry(){
           const win = (ACTIVE_WINDOW === "YTD") ? "YTD" : ACTIVE_WINDOW;
-          const tele = computeTelemetryWindow(CURRENT_INC_NORM, SUBS_ALL, win);
+          const tele = computeTelemetryWindow(INC_NORM, SUBS_ALL, win);
           renderTelemetry(tele);
           renderEmergingRiskSignals(tele);
 
